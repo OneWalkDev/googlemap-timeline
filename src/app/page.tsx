@@ -27,6 +27,7 @@ export default function Home() {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null);
   const [status, setStatus] = useState<string>("");
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
     const iconPath = (path: unknown) =>
@@ -41,6 +42,10 @@ export default function Home() {
       shadowSize: [41, 41],
     });
     L.Marker.prototype.options.icon = defaultIcon;
+  }, []);
+
+  useEffect(() => {
+    setIsClient(true);
   }, []);
 
   const availableDates = useMemo(
@@ -133,28 +138,32 @@ export default function Home() {
         </LocalizationProvider>
       </div>
       <div className="col-9 map-wrap">
-        <MapContainer
-          center={center}
-          zoom={13}
-          scrollWheelZoom={false}
-          style={{ height: "100%", width: "100%" }}
-        >
-          <AutoCenter target={firstPoint} />
-          <TileLayer
-            attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-          {filteredPoints.length > 0 && (
-            <>
-              <Polyline positions={filteredPoints} color="#1d4ed8" weight={4} />
-              {filteredPoints.map((p, idx) => (
-                <Marker key={idx} position={p}>
-                  <Popup>#{idx + 1}</Popup>
-                </Marker>
-              ))}
-            </>
-          )}
-        </MapContainer>
+        {isClient ? (
+          <MapContainer
+            center={center}
+            zoom={13}
+            scrollWheelZoom={false}
+            style={{ height: "100%", width: "100%" }}
+          >
+            <AutoCenter target={firstPoint} />
+            <TileLayer
+              attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+            {filteredPoints.length > 0 && (
+              <>
+                <Polyline positions={filteredPoints} color="#1d4ed8" weight={4} />
+                {filteredPoints.map((p, idx) => (
+                  <Marker key={idx} position={p}>
+                    <Popup>#{idx + 1}</Popup>
+                  </Marker>
+                ))}
+              </>
+            )}
+          </MapContainer>
+        ) : (
+          <div className="map-placeholder">地図を読み込み中...</div>
+        )}
       </div>
     </div>
   );
