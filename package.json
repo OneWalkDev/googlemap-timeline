@@ -9,9 +9,10 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@mui/x-date-pickers": "^8.21.0",
     "@emotion/react": "^11.13.5",
     "@emotion/styled": "^11.13.5",
+    "@mui/x-date-pickers": "^8.21.0",
+    "@opennextjs/cloudflare": "^1.14.4",
     "dayjs": "^1.11.13",
     "leaflet": "^1.9.4",
     "next": "15.0.5",
