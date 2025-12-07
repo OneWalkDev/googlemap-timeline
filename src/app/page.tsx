@@ -1,18 +1,6 @@
 "use client";
-import React, { useEffect, useMemo, useState } from "react";
-import {
-  MapContainer,
-  Marker,
-  Popup,
-  TileLayer,
-  Polyline,
-  useMap,
-} from "react-leaflet";
-import "leaflet/dist/leaflet.css";
-import L from "leaflet";
-import iconRetinaUrl from "leaflet/dist/images/marker-icon-2x.png";
-import iconUrl from "leaflet/dist/images/marker-icon.png";
-import shadowUrl from "leaflet/dist/images/marker-shadow.png";
+import React, { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { StaticDatePicker } from "@mui/x-date-pickers";
 import { PickersDay, PickersDayProps } from "@mui/x-date-pickers/PickersDay";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -23,30 +11,15 @@ import "dayjs/locale/ja";
 
 dayjs.locale("ja");
 
+const LeafletMap = dynamic(() => import("./LeafletMap"), {
+  ssr: false,
+  loading: () => <div className="map-placeholder">地図を読み込み中...</div>,
+});
+
 export default function Home() {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null);
   const [status, setStatus] = useState<string>("");
-  const [isClient, setIsClient] = useState(false);
-
-  useEffect(() => {
-    const iconPath = (path: unknown) =>
-      typeof path === "string" ? path : (path as any)?.src || "";
-    const defaultIcon = new L.Icon({
-      iconRetinaUrl: iconPath(iconRetinaUrl),
-      iconUrl: iconPath(iconUrl),
-      shadowUrl: iconPath(shadowUrl),
-      iconSize: [25, 41],
-      iconAnchor: [12, 41],
-      popupAnchor: [1, -34],
-      shadowSize: [41, 41],
-    });
-    L.Marker.prototype.options.icon = defaultIcon;
-  }, []);
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
 
   const availableDates = useMemo(
     () => new Set(entries.map((e) => e.date)),
@@ -138,32 +111,11 @@ export default function Home() {
         </LocalizationProvider>
       </div>
       <div className="col-9 map-wrap">
-        {isClient ? (
-          <MapContainer
-            center={center}
-            zoom={13}
-            scrollWheelZoom={false}
-            style={{ height: "100%", width: "100%" }}
-          >
-            <AutoCenter target={firstPoint} />
-            <TileLayer
-              attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-            {filteredPoints.length > 0 && (
-              <>
-                <Polyline positions={filteredPoints} color="#1d4ed8" weight={4} />
-                {filteredPoints.map((p, idx) => (
-                  <Marker key={idx} position={p}>
-                    <Popup>#{idx + 1}</Popup>
-                  </Marker>
-                ))}
-              </>
-            )}
-          </MapContainer>
-        ) : (
-          <div className="map-placeholder">地図を読み込み中...</div>
-        )}
+        <LeafletMap
+          center={center}
+          firstPoint={firstPoint}
+          points={filteredPoints}
+        />
       </div>
     </div>
   );
@@ -214,14 +166,4 @@ function parseGeo(geo: unknown): LatLngExpression | null {
   const lng = parseFloat(match[2]);
   if (Number.isNaN(lat) || Number.isNaN(lng)) return null;
   return [lat, lng];
-}
-
-function AutoCenter({ target }: { target?: LatLngExpression }): null {
-  const map = useMap();
-  useEffect(() => {
-    if (target) {
-      map.flyTo(target, map.getZoom());
-    }
-  }, [target, map]);
-  return null;
 }
