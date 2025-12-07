@@ -41,7 +41,7 @@ export default function LeafletMap({ center, firstPoint, points }: Props) {
     <MapContainer
       center={center}
       zoom={13}
-      scrollWheelZoom={false}
+      scrollWheelZoom={true}
       style={{ height: "100%", width: "100%" }}
     >
       <AutoCenter target={firstPoint} />
