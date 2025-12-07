@@ -20,6 +20,8 @@ export default function Home() {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null);
   const [status, setStatus] = useState<string>("");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   const availableDates = useMemo(
     () => new Set(entries.map((e) => e.date)),
@@ -82,11 +84,30 @@ export default function Home() {
     reader.readAsText(file);
   };
 
+  // Avoid hydration mismatch by rendering after mount
+  React.useEffect(() => setMounted(true), []);
+
+  if (!mounted) {
+    return (
+      <div className="row">
+        <div className="col-3 sidebar">
+          <h1>GoogleMapTimeLineViewer</h1>
+          <div className="status">読み込み中...</div>
+        </div>
+        <div className="col-9 map-wrap">
+          <div className="map-placeholder">地図を読み込み中...</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="row">
-      <div className="col-3 sidebar">
+      <div className={`col-3 sidebar ${menuOpen ? "open" : ""}`}>
         <div>
-          <h1>GoogleMapTimeLineViewer</h1>
+          <h1 className="text-2xl mb-3">GoogleMapTimeLineViewer</h1>
+          <p>スマートフォンのGoogleMap→「設定」→「位置情報とプライバシー」→「タイムラインデータをエクスポート」でダウンロードされるlocation-history.jsonを読み込ませて下さい。</p>
+          <p className="mb-3">データは保存されることなく、<a href="https://github.com/OneWalkDev/googlemap-timeline">Github</a>からローカル上で動かすこともできます。</p>
           <label className="file-label">
             ①位置情報 JSON を選択
             <input
@@ -98,19 +119,32 @@ export default function Home() {
           </label>
           <div className="status">{status}</div>
         </div>
+        <p className="file-label">②日付を選択</p>
         <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="ja">
-          <StaticDatePicker
-            value={selectedDate}
-            onChange={(newValue) => setSelectedDate(newValue)}
-            slots={{ day: HighlightedDay }}
-            displayStaticWrapperAs="mobile"
-            slotProps={{
-              toolbar: { toolbarFormat: "YYYY年M月D日" },
-            }}
-          />
+          <div className="picker-wrap">
+            <StaticDatePicker
+              value={selectedDate}
+              onChange={(newValue) => setSelectedDate(newValue)}
+              slots={{ day: HighlightedDay }}
+              displayStaticWrapperAs="mobile"
+              slotProps={{
+                toolbar: { toolbarFormat: "YYYY年M月D日" },
+                layout: { sx: { width: "100%", minWidth: 0 } },
+                actionBar: { actions: [] },
+              }}
+            />
+          </div>
         </LocalizationProvider>
       </div>
       <div className="col-9 map-wrap">
+        <button
+          className="menu-toggle"
+          type="button"
+          onClick={() => setMenuOpen((v) => !v)}
+        >
+          メニュー
+        </button>
+        {menuOpen && <div className="backdrop" onClick={() => setMenuOpen(false)} />}
         <LeafletMap
           center={center}
           firstPoint={firstPoint}
