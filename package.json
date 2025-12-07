@@ -1,0 +1,38 @@
+{
+  "name": "new-homepage",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --hostname 0.0.0.0 --port 3000",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@mui/x-date-pickers": "^8.21.0",
+    "@emotion/react": "^11.13.5",
+    "@emotion/styled": "^11.13.5",
+    "dayjs": "^1.11.13",
+    "leaflet": "^1.9.4",
+    "next": "15.0.5",
+    "react": "^19.0.0-rc.1",
+    "react-dom": "^19.0.0-rc.1",
+    "react-icons": "4.12.0",
+    "react-leaflet": "^5.0.0-rc.2"
+  },
+  "devDependencies": {
+    "@cloudflare/next-on-pages": "^1.13.16",
+    "@tailwindcss/postcss": "^4.1.17",
+    "@types/leaflet": "^1.9.21",
+    "@types/node": "20.10.5",
+    "@types/react": "18.2.38",
+    "@types/react-dom": "18.2.17",
+    "autoprefixer": "^10.4.22",
+    "eslint": "8.57.1",
+    "eslint-config-next": "15.0.3",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.17",
+    "typescript": "5.3.3",
+    "vercel": "47.0.4"
+  }
+}
