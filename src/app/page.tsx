@@ -22,6 +22,7 @@ export default function Home() {
   const [status, setStatus] = useState<string>("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [fileName, setFileName] = useState<string | null>(null);
   const [focusedPoint, setFocusedPoint] = useState<[number, number] | null>(
     null
   );
@@ -61,6 +62,14 @@ export default function Home() {
       .flatMap((e) => e.points);
   }, [entries, selectedDate]);
 
+  const { visitCount, activityCount } = useMemo(() => {
+    const visitCount = filteredPoints.filter((p) => p.type === "visit").length;
+    const activityCount = filteredPoints.filter(
+      (p) => p.type === "activity"
+    ).length;
+    return { visitCount, activityCount };
+  }, [filteredPoints]);
+
   const center = useMemo<[number, number]>(() => {
     if (filteredPoints.length > 0)
       return normalizePoint(filteredPoints[0].coords);
@@ -80,8 +89,18 @@ export default function Home() {
     setFocusedPoint(normalizePoint(point.coords));
   };
 
+  const activeDateLabel = selectedDate
+    ? selectedDate.format("YYYY年M月D日 (ddd)")
+    : "日付を選択";
+
+  const pointCountLabel =
+    filteredPoints.length > 0
+      ? `${filteredPoints.length}地点`
+      : "地点リストなし";
+
   const handleFile = (file?: File | null) => {
     if (!file) return;
+    setFileName(file.name);
     const reader = new FileReader();
     reader.onload = () => {
       try {
@@ -104,9 +123,9 @@ export default function Home() {
 
   if (!mounted) {
     return (
-      <div className="row">
+      <div className="row app-shell">
         <div className="col-3 sidebar">
-          <h1>GoogleMapTimeLineViewer</h1>
+          <h1 className="sidebar-title">GoogleMapTimeLineViewer</h1>
           <div className="status">読み込み中...</div>
         </div>
         <div className="col-9 map-wrap">
@@ -117,105 +136,164 @@ export default function Home() {
   }
 
   return (
-    <div className="row">
-      <div className={`col-3 sidebar ${menuOpen ? "open" : ""}`}>
-        <div>
-          <h1 className="text-2xl mb-3">GoogleMapTimeLineViewer</h1>
-          <p>スマートフォンのGoogleMap→「設定」→「位置情報とプライバシー」→「タイムラインデータをエクスポート」でダウンロードされるlocation-history.jsonを読み込ませて下さい。</p>
-          <p className="mb-3">データは保存されることなく、<a href="https://github.com/OneWalkDev/googlemap-timeline">Github</a>からローカル上で動かすこともできます。</p>
-          <label className="file-label">
-            ①位置情報 JSON を選択
-            <input
-              type="file"
-              accept="application/json"
-              onChange={(e) => handleFile(e.target.files?.[0])}
-              className="w-[300px]"
-            />
-          </label>
-          <div className="status">{status}</div>
-        </div>
-        <p className="file-label">②日付を選択</p>
-        <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="ja">
-          <div className="picker-wrap">
-            <StaticDatePicker
-              value={selectedDate}
-              onChange={(newValue) => setSelectedDate(newValue)}
-              slots={{ day: HighlightedDay }}
-              displayStaticWrapperAs="mobile"
-              slotProps={{
-                toolbar: { toolbarFormat: "YYYY年M月D日" },
-                layout: { sx: { width: "100%", minWidth: 0 } },
-                actionBar: { actions: [] },
-              }}
-            />
+    <div className="app-shell">
+      <div className="glow glow-1" />
+      <div className="glow glow-2" />
+      <div className="row">
+        <div className={`col-3 sidebar ${menuOpen ? "open" : ""}`}>
+          <header className="sidebar-header">
+            <div>
+              <h1 className="sidebar-title">GoogleMapTimeLineViewer</h1>
+              <p className="subtitle">
+                Google Mapのタイムラインデータを読み込み、訪問/移動履歴を1日にまとめて振り返ります。
+              </p>
+            </div>
+          </header>
+
+          <div className="card">
+            <div className="card-heading">
+              <span className="chip-outline">STEP 1</span>
+              <h2>位置情報 JSON を読み込む</h2>
+            </div>
+            <p className="card-desc">
+              スマートフォンの Google Map →「設定」→「位置情報とプライバシー」
+              →「タイムラインデータをエクスポート」でダウンロードした
+              location-history.json を選択してください。
+            </p>
+            <label className="upload-control" htmlFor="location-file">
+              <input
+                id="location-file"
+                type="file"
+                accept="application/json"
+                onChange={(e) => handleFile(e.target.files?.[0])}
+              />
+              <div className="upload-text">
+                <span className="upload-button">
+                  {fileName ? "選択済み" : "ファイルを選択"}
+                </span>
+                <span className="upload-hint">
+                  {fileName ?? "ドラッグ＆ドロップも可能です"}
+                </span>
+              </div>
+            </label>
           </div>
-        </LocalizationProvider>
-        <div>
-          <p className="file-label">③行った場所を選択</p>
-          <div className="points-list">
-            {filteredPoints.length === 0 ? (
-              <p className="points-empty">選択した日に地点がありません</p>
-            ) : (
-              filteredPoints.map((point, idx) => {
-                const tuple = normalizePoint(point.coords);
-                const isActive = focusedPoint && areSamePoint(tuple, focusedPoint);
-                const title =
-                  point.label ??
-                  (point.type === "visit" ? "訪問地点" : "移動ポイント");
-                return (
-                  <button
-                    key={`${tuple[0]}-${tuple[1]}-${idx}`}
-                    type="button"
-                    className={`point-item ${isActive ? "active" : ""}`}
-                    onClick={() => focusOnPoint(point)}
-                  >
-                    <span className="point-label">#{idx + 1}</span>
-                    <div className="point-content">
-                      <div className="point-title">
-                        {title}
-                        {point.type && (
-                          <span className={`point-chip ${point.type}`}>
-                            {point.type === "visit" ? "訪問" : "移動"}
+
+          <div className="card calendar-card">
+            <div className="card-heading">
+              <span className="chip-outline">STEP 2</span>
+              <h2>日付を選択</h2>
+            </div>
+            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="ja">
+              <div className="picker-wrap">
+                <StaticDatePicker
+                  value={selectedDate}
+                  onChange={(newValue) => setSelectedDate(newValue)}
+                  slots={{ day: HighlightedDay }}
+                  displayStaticWrapperAs="mobile"
+                  slotProps={{
+                    toolbar: { toolbarFormat: "YYYY年M月D日" },
+                    layout: { sx: { width: "100%", minWidth: 0 } },
+                    actionBar: { actions: [] },
+                  }}
+                />
+              </div>
+            </LocalizationProvider>
+          </div>
+
+          <div className="card points-card">
+            <div className="card-heading">
+              <span className="chip-outline">STEP 3</span>
+              <h2>行った場所</h2>
+              <span className="chip-ghost">{pointCountLabel}</span>
+            </div>
+            <div className="points-list mt-3">
+              {filteredPoints.length === 0 ? (
+                <p className="points-empty">
+                  {selectedDate
+                    ? "選択した日に地点がありません"
+                    : "日付を選択してください"}
+                </p>
+              ) : (
+                filteredPoints.map((point, idx) => {
+                  const tuple = normalizePoint(point.coords);
+                  const isActive =
+                    focusedPoint && areSamePoint(tuple, focusedPoint);
+                  const title =
+                    point.label ??
+                    (point.type === "visit" ? "訪問地点" : "移動ポイント");
+                  return (
+                    <button
+                      key={`${tuple[0]}-${tuple[1]}-${idx}`}
+                      type="button"
+                      className={`point-item ${isActive ? "active" : ""}`}
+                      onClick={() => focusOnPoint(point)}
+                    >
+                      <span className="point-label">#{idx + 1}</span>
+                      <div className="point-content">
+                        <div className="point-title">
+                          {title}
+                          {point.type && (
+                            <span className={`point-chip ${point.type}`}>
+                              {point.type === "visit" ? "訪問" : "移動"}
+                            </span>
+                          )}
+                        </div>
+                        <div className="point-meta">
+                          <span>
+                            {point.timeRangeText ?? "時間情報なし"}
                           </span>
-                        )}
-                      </div>
-                      <div className="point-meta">
-                        <span>
-                          {point.timeRangeText ?? "時間情報なし"}
+                          {point.durationText && (
+                            <span className="point-duration">
+                              {point.type === "activity"
+                                ? `移動 ${point.durationText}`
+                                : `滞在 ${point.durationText}`}
+                            </span>
+                          )}
+                        </div>
+                        <span className="point-coords">
+                          {tuple[0].toFixed(5)}, {tuple[1].toFixed(5)}
                         </span>
-                        {point.durationText && (
-                          <span className="point-duration">
-                            {point.type === "activity"
-                              ? `移動 ${point.durationText}`
-                              : `滞在 ${point.durationText}`}
-                          </span>
-                        )}
                       </div>
-                      <span className="point-coords">
-                        {tuple[0].toFixed(5)}, {tuple[1].toFixed(5)}
-                      </span>
-                    </div>
-                  </button>
-                );
-              })
-            )}
+                    </button>
+                  );
+                })
+              )}
+            </div>
           </div>
         </div>
-      </div>
-      <div className="col-9 map-wrap">
-        <button
-          className="menu-toggle"
-          type="button"
-          onClick={() => setMenuOpen((v) => !v)}
-        >
-          メニュー
-        </button>
-        {menuOpen && <div className="backdrop" onClick={() => setMenuOpen(false)} />}
-        <LeafletMap
-          center={center}
-          focusPoint={focusedPoint ?? undefined}
-          points={filteredPoints}
-        />
+        <div className="col-9 map-wrap">
+          <div className="map-panel">
+            <div>
+              <p className="eyebrow">選択中の日付</p>
+              <div className="map-title">{activeDateLabel}</div>
+            </div>
+            <div className="map-actions">
+              <div className="map-stats">
+                <span className="status-chip strong">
+                  地点 {filteredPoints.length}
+                </span>
+                <span className="status-chip">
+                  訪問 {visitCount} / 移動 {activityCount}
+                </span>
+              </div>
+              <button
+                className="menu-toggle"
+                type="button"
+                onClick={() => setMenuOpen((v) => !v)}
+              >
+                メニュー
+              </button>
+            </div>
+          </div>
+          {menuOpen && (
+            <div className="backdrop" onClick={() => setMenuOpen(false)} />
+          )}
+          <LeafletMap
+            center={center}
+            focusPoint={focusedPoint ?? undefined}
+            points={filteredPoints}
+          />
+        </div>
       </div>
     </div>
   );
