@@ -5,9 +5,9 @@ import { StaticDatePicker } from "@mui/x-date-pickers";
 import { PickersDay, PickersDayProps } from "@mui/x-date-pickers/PickersDay";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
-import { LatLngExpression } from "leaflet";
 import dayjs, { Dayjs } from "dayjs";
 import "dayjs/locale/ja";
+import type { MapPoint } from "./LeafletMap";
 
 dayjs.locale("ja");
 
@@ -22,7 +22,7 @@ export default function Home() {
   const [status, setStatus] = useState<string>("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [focusedPoint, setFocusedPoint] = useState<LatLngExpression | null>(
+  const [focusedPoint, setFocusedPoint] = useState<[number, number] | null>(
     null
   );
 
@@ -53,7 +53,7 @@ export default function Home() {
     return HighlightedDayComponent;
   }, [availableDates]);
 
-  const filteredPoints = useMemo<LatLngExpression[]>(() => {
+  const filteredPoints = useMemo<MapPoint[]>(() => {
     if (!selectedDate) return [];
     const day = selectedDate.format("YYYY-MM-DD");
     return entries
@@ -61,22 +61,23 @@ export default function Home() {
       .flatMap((e) => e.points);
   }, [entries, selectedDate]);
 
-  const center = useMemo<LatLngExpression>(() => {
-    if (filteredPoints.length > 0) return filteredPoints[0];
+  const center = useMemo<[number, number]>(() => {
+    if (filteredPoints.length > 0)
+      return normalizePoint(filteredPoints[0].coords);
     return [35.68, 139.76];
   }, [filteredPoints]);
 
   useEffect(() => {
     if (filteredPoints.length > 0) {
       // Always focus the first point for a freshly selected date
-      setFocusedPoint(filteredPoints[0]);
+      setFocusedPoint(normalizePoint(filteredPoints[0].coords));
     } else {
       setFocusedPoint(null);
     }
   }, [filteredPoints]);
 
-  const focusOnPoint = (point: LatLngExpression) => {
-    setFocusedPoint(normalizePoint(point));
+  const focusOnPoint = (point: MapPoint) => {
+    setFocusedPoint(normalizePoint(point.coords));
   };
 
   const handleFile = (file?: File | null) => {
@@ -156,10 +157,11 @@ export default function Home() {
               <p className="points-empty">選択した日に地点がありません</p>
             ) : (
               filteredPoints.map((point, idx) => {
-                const tuple = normalizePoint(point);
-                const isActive =
-                  focusedPoint &&
-                  areSamePoint(tuple, normalizePoint(focusedPoint));
+                const tuple = normalizePoint(point.coords);
+                const isActive = focusedPoint && areSamePoint(tuple, focusedPoint);
+                const title =
+                  point.label ??
+                  (point.type === "visit" ? "訪問地点" : "移動ポイント");
                 return (
                   <button
                     key={`${tuple[0]}-${tuple[1]}-${idx}`}
@@ -168,9 +170,31 @@ export default function Home() {
                     onClick={() => focusOnPoint(point)}
                   >
                     <span className="point-label">#{idx + 1}</span>
-                    <span className="point-coords">
-                      {tuple[0].toFixed(5)}, {tuple[1].toFixed(5)}
-                    </span>
+                    <div className="point-content">
+                      <div className="point-title">
+                        {title}
+                        {point.type && (
+                          <span className={`point-chip ${point.type}`}>
+                            {point.type === "visit" ? "訪問" : "移動"}
+                          </span>
+                        )}
+                      </div>
+                      <div className="point-meta">
+                        <span>
+                          {point.timeRangeText ?? "時間情報なし"}
+                        </span>
+                        {point.durationText && (
+                          <span className="point-duration">
+                            {point.type === "activity"
+                              ? `移動 ${point.durationText}`
+                              : `滞在 ${point.durationText}`}
+                          </span>
+                        )}
+                      </div>
+                      <span className="point-coords">
+                        {tuple[0].toFixed(5)}, {tuple[1].toFixed(5)}
+                      </span>
+                    </div>
                   </button>
                 );
               })
@@ -199,7 +223,7 @@ export default function Home() {
 
 type Entry = {
   date: string;
-  points: LatLngExpression[];
+  points: MapPoint[];
 };
 
 function extractEntries(data: unknown): Entry[] {
@@ -208,23 +232,54 @@ function extractEntries(data: unknown): Entry[] {
   const entries = data
     .map((item) => {
       const startTime = (item as any)?.startTime as string | undefined;
+      const endTime = (item as any)?.endTime as string | undefined;
       const act = (item as any)?.activity;
       const visit = (item as any)?.visit;
+      const activityLabel = activityLabelFromType(act?.topCandidate?.type);
 
-      const points: (LatLngExpression | null)[] = [];
-      if (act?.start) points.push(parseGeo(act.start));
-      if (act?.end) points.push(parseGeo(act.end));
+      let points: MapPoint[] = [];
+      const dateSource = startTime ?? endTime;
+      const date = dateSource
+        ? dayjs(dateSource).format("YYYY-MM-DD")
+        : undefined;
+      const timeInfo = buildTimeInfo(startTime, endTime);
+
+      if (act?.start) {
+        const coords = parseGeo(act.start);
+        if (coords)
+          points.push({
+            coords,
+            type: "activity",
+            label: activityLabel ?? "移動",
+            activityType: act?.topCandidate?.type,
+            ...timeInfo,
+          });
+      }
+      if (act?.end) {
+        const coords = parseGeo(act.end);
+        if (coords)
+          points.push({
+            coords,
+            type: "activity",
+            label: activityLabel ?? "移動",
+            activityType: act?.topCandidate?.type,
+            ...timeInfo,
+          });
+      }
       if (visit?.topCandidate?.placeLocation) {
-        points.push(parseGeo(visit.topCandidate.placeLocation));
+        const coords = parseGeo(visit.topCandidate.placeLocation);
+        if (coords) {
+          points.push({
+            coords,
+            label: visit.topCandidate.name ?? visit.topCandidate.address,
+            type: "visit",
+            ...timeInfo,
+          });
+        }
       }
 
-      const date = startTime ? dayjs(startTime).format("YYYY-MM-DD") : undefined;
-
-      if (!date) return null;
-      return {
-        date,
-        points: points.filter((p): p is LatLngExpression => !!p),
-      };
+      if (!date || points.length === 0) return null;
+      return { date, points };
     })
     .filter((e): e is Entry => !!e && e.points.length > 0);
 
@@ -234,7 +289,7 @@ function extractEntries(data: unknown): Entry[] {
   return entries;
 }
 
-function parseGeo(geo: unknown): LatLngExpression | null {
+function parseGeo(geo: unknown): [number, number] | null {
   if (typeof geo !== "string") return null;
   const match = geo.match(/geo:([0-9.+-]+),([0-9.+-]+)/i);
   if (!match) return null;
@@ -244,7 +299,7 @@ function parseGeo(geo: unknown): LatLngExpression | null {
   return [lat, lng];
 }
 
-function normalizePoint(point: LatLngExpression): [number, number] {
+function normalizePoint(point: MapPoint["coords"]): [number, number] {
   if (Array.isArray(point)) {
     const [lat, lng] = point as [number, number];
     return [lat, lng];
@@ -259,13 +314,65 @@ function normalizePoint(point: LatLngExpression): [number, number] {
 }
 
 function areSamePoint(
-  a: LatLngExpression,
-  b: LatLngExpression
+  a: [number, number],
+  b: [number, number]
 ): boolean {
-  const [latA, lngA] = normalizePoint(a);
-  const [latB, lngB] = normalizePoint(b);
   return (
-    Math.abs(latA - latB) < 1e-9 &&
-    Math.abs(lngA - lngB) < 1e-9
+    Math.abs(a[0] - b[0]) < 1e-9 &&
+    Math.abs(a[1] - b[1]) < 1e-9
   );
+}
+
+function buildTimeInfo(startTime?: string, endTime?: string) {
+  const start = startTime ? dayjs(startTime) : null;
+  const end = endTime ? dayjs(endTime) : null;
+
+  const timeRangeText =
+    start && start.isValid()
+      ? `${start.format("HH:mm")}${
+          end && end.isValid() ? ` - ${end.format("HH:mm")}` : ""
+        }`
+      : undefined;
+
+  const durationMs =
+    start && start.isValid() && end && end.isValid()
+      ? Math.max(end.diff(start), 0)
+      : undefined;
+  const durationText =
+    durationMs !== undefined ? formatDuration(durationMs) : undefined;
+
+  return {
+    startTime,
+    endTime,
+    timeRangeText,
+    durationMs,
+    durationText,
+  };
+}
+
+function formatDuration(durationMs: number): string {
+  const totalMinutes = Math.floor(durationMs / 60000);
+  if (totalMinutes <= 0) return "1分未満";
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours > 0 && minutes > 0) return `${hours}時間${minutes}分`;
+  if (hours > 0) return `${hours}時間`;
+  return `${minutes}分`;
+}
+
+function activityLabelFromType(raw?: string): string | undefined {
+  if (!raw) return undefined;
+  const key = raw.toLowerCase();
+  const map: Record<string, string> = {
+    walking: "徒歩",
+    "in subway": "地下鉄",
+    "in passenger vehicle": "車",
+    "in bus": "バス",
+    "in train": "電車",
+    cycling: "自転車",
+    motorcycling: "バイク",
+    flying: "飛行機",
+    unknown: "不明",
+  };
+  return map[key] ?? raw;
 }

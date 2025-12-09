@@ -16,10 +16,22 @@ import iconRetinaUrl from "leaflet/dist/images/marker-icon-2x.png";
 import iconUrl from "leaflet/dist/images/marker-icon.png";
 import shadowUrl from "leaflet/dist/images/marker-shadow.png";
 
+export type MapPoint = {
+  coords: LatLngExpression;
+  label?: string;
+  startTime?: string;
+  endTime?: string;
+  durationMs?: number;
+  timeRangeText?: string;
+  durationText?: string;
+  type?: "visit" | "activity";
+  activityType?: string;
+};
+
 type Props = {
   center: LatLngExpression;
   focusPoint?: LatLngExpression;
-  points: LatLngExpression[];
+  points: MapPoint[];
 };
 
 export default function LeafletMap({ center, focusPoint, points }: Props) {
@@ -54,10 +66,26 @@ export default function LeafletMap({ center, focusPoint, points }: Props) {
       />
       {points.length > 0 && (
         <>
-          <Polyline positions={points} color="#1d4ed8" weight={4} />
+          <Polyline
+            positions={points.map((p) => p.coords)}
+            color="#1d4ed8"
+            weight={4}
+          />
           {points.map((p, idx) => (
-            <Marker key={idx} position={p}>
-              <Popup>#{idx + 1}</Popup>
+            <Marker key={idx} position={p.coords}>
+              <Popup>
+                <div className="popup-title">
+                  #{idx + 1} {p.label ? `- ${p.label}` : ""}
+                </div>
+                {p.timeRangeText && <div>{p.timeRangeText}</div>}
+                {p.durationText && (
+                  <div>
+                    {p.type === "activity"
+                      ? `移動 ${p.durationText}`
+                      : `滞在 ${p.durationText}`}
+                  </div>
+                )}
+              </Popup>
             </Marker>
           ))}
           {focusPoint && (
