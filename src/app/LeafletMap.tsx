@@ -7,6 +7,7 @@ import {
   Popup,
   TileLayer,
   Polyline,
+  CircleMarker,
   useMap,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
@@ -17,11 +18,11 @@ import shadowUrl from "leaflet/dist/images/marker-shadow.png";
 
 type Props = {
   center: LatLngExpression;
-  firstPoint?: LatLngExpression;
+  focusPoint?: LatLngExpression;
   points: LatLngExpression[];
 };
 
-export default function LeafletMap({ center, firstPoint, points }: Props) {
+export default function LeafletMap({ center, focusPoint, points }: Props) {
   useEffect(() => {
     const iconPath = (path: unknown) =>
       typeof path === "string" ? path : (path as any)?.src || "";
@@ -41,13 +42,15 @@ export default function LeafletMap({ center, firstPoint, points }: Props) {
     <MapContainer
       center={center}
       zoom={13}
+      maxZoom={18}
       scrollWheelZoom={true}
       style={{ height: "100%", width: "100%" }}
     >
-      <AutoCenter target={firstPoint} />
+      <AutoCenter target={focusPoint} />
       <TileLayer
         attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        maxZoom={18}
       />
       {points.length > 0 && (
         <>
@@ -57,6 +60,18 @@ export default function LeafletMap({ center, firstPoint, points }: Props) {
               <Popup>#{idx + 1}</Popup>
             </Marker>
           ))}
+          {focusPoint && (
+            <CircleMarker
+              center={focusPoint}
+              radius={10}
+              pathOptions={{
+                color: "#f97316",
+                fillColor: "#fb923c",
+                fillOpacity: 0.6,
+                weight: 3,
+              }}
+            />
+          )}
         </>
       )}
     </MapContainer>
@@ -67,7 +82,8 @@ function AutoCenter({ target }: { target?: LatLngExpression }): null {
   const map = useMap();
   useEffect(() => {
     if (target) {
-      map.flyTo(target, map.getZoom());
+      const maxZoom = map.getMaxZoom() || map.getZoom();
+      map.flyTo(target, maxZoom);
     }
   }, [target, map]);
   return null;

@@ -1,5 +1,5 @@
 "use client";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { StaticDatePicker } from "@mui/x-date-pickers";
 import { PickersDay, PickersDayProps } from "@mui/x-date-pickers/PickersDay";
@@ -22,6 +22,9 @@ export default function Home() {
   const [status, setStatus] = useState<string>("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [focusedPoint, setFocusedPoint] = useState<LatLngExpression | null>(
+    null
+  );
 
   const availableDates = useMemo(
     () => new Set(entries.map((e) => e.date)),
@@ -63,7 +66,18 @@ export default function Home() {
     return [35.68, 139.76];
   }, [filteredPoints]);
 
-  const firstPoint = filteredPoints[0];
+  useEffect(() => {
+    if (filteredPoints.length > 0) {
+      // Always focus the first point for a freshly selected date
+      setFocusedPoint(filteredPoints[0]);
+    } else {
+      setFocusedPoint(null);
+    }
+  }, [filteredPoints]);
+
+  const focusOnPoint = (point: LatLngExpression) => {
+    setFocusedPoint(normalizePoint(point));
+  };
 
   const handleFile = (file?: File | null) => {
     if (!file) return;
@@ -135,6 +149,34 @@ export default function Home() {
             />
           </div>
         </LocalizationProvider>
+        <div>
+          <p className="file-label">③行った場所を選択</p>
+          <div className="points-list">
+            {filteredPoints.length === 0 ? (
+              <p className="points-empty">選択した日に地点がありません</p>
+            ) : (
+              filteredPoints.map((point, idx) => {
+                const tuple = normalizePoint(point);
+                const isActive =
+                  focusedPoint &&
+                  areSamePoint(tuple, normalizePoint(focusedPoint));
+                return (
+                  <button
+                    key={`${tuple[0]}-${tuple[1]}-${idx}`}
+                    type="button"
+                    className={`point-item ${isActive ? "active" : ""}`}
+                    onClick={() => focusOnPoint(point)}
+                  >
+                    <span className="point-label">#{idx + 1}</span>
+                    <span className="point-coords">
+                      {tuple[0].toFixed(5)}, {tuple[1].toFixed(5)}
+                    </span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
       </div>
       <div className="col-9 map-wrap">
         <button
@@ -147,7 +189,7 @@ export default function Home() {
         {menuOpen && <div className="backdrop" onClick={() => setMenuOpen(false)} />}
         <LeafletMap
           center={center}
-          firstPoint={firstPoint}
+          focusPoint={focusedPoint ?? undefined}
           points={filteredPoints}
         />
       </div>
@@ -200,4 +242,30 @@ function parseGeo(geo: unknown): LatLngExpression | null {
   const lng = parseFloat(match[2]);
   if (Number.isNaN(lat) || Number.isNaN(lng)) return null;
   return [lat, lng];
+}
+
+function normalizePoint(point: LatLngExpression): [number, number] {
+  if (Array.isArray(point)) {
+    const [lat, lng] = point as [number, number];
+    return [lat, lng];
+  }
+  if (typeof point === "object" && point !== null) {
+    const anyPoint = point as any;
+    if (typeof anyPoint.lat === "number" && typeof anyPoint.lng === "number") {
+      return [anyPoint.lat, anyPoint.lng];
+    }
+  }
+  return [0, 0];
+}
+
+function areSamePoint(
+  a: LatLngExpression,
+  b: LatLngExpression
+): boolean {
+  const [latA, lngA] = normalizePoint(a);
+  const [latB, lngB] = normalizePoint(b);
+  return (
+    Math.abs(latA - latB) < 1e-9 &&
+    Math.abs(lngA - lngB) < 1e-9
+  );
 }

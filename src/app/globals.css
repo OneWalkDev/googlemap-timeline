@@ -41,6 +41,9 @@ body {
   flex-direction: column;
   gap: 1rem;
   transition: transform 0.25s ease;
+  overflow-y: auto;
+  max-height: 100vh;
+  padding-bottom: 2.5rem;
 }
 
 .map-wrap {
@@ -109,6 +112,70 @@ body {
   inset: 0;
   background: rgba(0, 0, 0, 0.3);
   z-index: 1090;
+}
+
+.points-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  max-height: 45vh;
+  overflow-y: auto;
+}
+
+.point-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.6rem;
+  background: #f8fafc;
+  color: #111827;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.point-item:hover {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+}
+
+.point-item.active {
+  border-color: #1d4ed8;
+  background: #e0f2fe;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.point-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: #111827;
+  color: #fff;
+  font-size: 0.95rem;
+  margin-right: 0.75rem;
+}
+
+.point-coords {
+  font-family: "SFMono-Regular", "Menlo", "Consolas", monospace;
+  font-size: 0.95rem;
+  color: #1f2937;
+}
+
+.points-empty {
+  margin: 0;
+  padding: 0.25rem 0;
+  color: #6b7280;
+  font-size: 0.95rem;
 }
 
 @media (max-width: 768px) {
